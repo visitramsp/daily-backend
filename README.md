@@ -83,8 +83,6 @@ at the same `/api/*` paths listed above; do **not** use `npm start` on Netlify.
 2. In **Site configuration → Environment variables**, add:
    - `MONGODB_URI`: your MongoDB Atlas connection string (use a database user
      with only the permissions this app needs).
-   - `CLIENT_ORIGIN`: the exact frontend origin, for example
-     `https://your-frontend.netlify.app`. Multiple origins may be comma-separated.
    - `NODE_ENV`: `production`.
 3. In MongoDB Atlas **Network Access**, allow connections from Netlify. Netlify
    Functions do not use fixed outbound IP addresses, so Atlas commonly requires
@@ -95,3 +93,20 @@ at the same `/api/*` paths listed above; do **not** use `npm start` on Netlify.
 `netlify.toml` routes `/api/*` to `netlify/functions/api.js`, and the function
 reuses the MongoDB connection while an instance stays warm. This demo does not
 include authentication; it uses a shared task collection.
+
+Functions use the `esbuild` bundler for the ES module entry point. Mongoose is
+externalized so Netlify packages it and its dependencies as Node modules instead
+of bundling the database driver. All runtime dependencies, including Express and
+`serverless-http`, are declared in `package.json` and pinned by `package-lock.json`.
+
+The public API allows cross-origin requests from any website without cookie
+credentials. Browser clients should omit `credentials: 'include'`. CORS preflight
+requests and `/api/health` do not need a database connection. The health endpoint
+reports that the API is running; task endpoints return HTTP 503 with CORS headers
+when MongoDB is unavailable. Postman does not enforce browser CORS restrictions.
+
+If task endpoints return 503, verify MongoDB connectivity, TLS support, database
+credentials, and Atlas Network Access for Netlify's outbound connections. If a
+deploy URL returns a Netlify login page or HTTP 401, check project access settings
+under **Project configuration → General → Visitor access**; that
+protection runs before the API and cannot be changed by Express CORS headers.
